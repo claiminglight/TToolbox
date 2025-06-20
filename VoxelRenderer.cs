@@ -30,7 +30,7 @@ namespace TToolbox
             {
                 for (int x = 0; x < _grid.GridWidth; x++)
                 {
-                    for (int z = _grid.MaxZ; z >= _grid.MinZ; z--)
+                    for (int z = _grid.MinZ + _grid.Depth; z >= _grid.MinZ; z--)
                     {
                         Voxel voxel = _grid.GetVoxel(x, y, z);
                         if (voxel.Type == VoxelType.Void) continue;

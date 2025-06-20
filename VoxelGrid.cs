@@ -9,17 +9,20 @@ namespace TToolbox
         private readonly int _width;
         private readonly int _height;
         private readonly int _depth;
+        private readonly int _minZ;
         private readonly Voxel[,,] _voxels;
 
         public int GridWidth => _width;
         public int GridHeight => _height;
         public int MinZ { get; } = -3;
+        public int Depth = 7;
 
-        public VoxelGrid(int width, int height, int depth)
+        public VoxelGrid(int width, int height, int depth, int minZ)
         {
             _width = width;
             _height = height;
             _depth = depth;
+            _minZ = minZ;
             _voxels = new Voxel[width, height, depth];
         }
 
