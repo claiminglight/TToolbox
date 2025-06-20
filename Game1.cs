@@ -11,12 +11,16 @@ namespace TToolbox
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
 
-        private TileGrid _grid;
+        private VoxelGrid _voxelGrid;
         private Selector _selector;
-        private TilePainter _painter;
+        private VoxelPainter _painter;
         private InputConfig _inputConfig;
-        private GridConfig _gridConfig;
+        private VoxelRenderer _renderer;
         private CameraController _camera;
+
+        private SpriteFont _debugFont;
+        private Texture2D _gridLineTexture;
+        private bool _showGrid = true;
 
         private bool _isFullscreen = true;
         private Point _previousWindowSize = new Point(800, 600);
@@ -40,12 +44,12 @@ namespace TToolbox
         protected override void Initialize()
         {
             _inputConfig = new InputConfig();
-            _gridConfig = new GridConfig();
-            _grid = new TileGrid(_gridConfig);
-            _selector = new Selector(_grid, _inputConfig);
-            _painter = new TilePainter(_grid, _selector, _inputConfig);
-            _camera = new CameraController(_grid, _selector);
-            _selector.CenterOnGrid();
+            _voxelGrid = new VoxelGrid(100, 100, 7, -3);
+            FillBaseLayer();
+            _selector = new Selector(_inputConfig);
+            _painter = new VoxelPainter(_voxelGrid, _selector, _inputConfig);
+            _camera = new CameraController(_voxelGrid, _selector);
+            _selector.CenterOnGrid(_voxelGrid);
             ApplyFullscreen();
             base.Initialize();
         }
@@ -53,9 +57,14 @@ namespace TToolbox
         protected override void LoadContent()
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
-            _grid.LoadContent(GraphicsDevice);
+            _renderer = new VoxelRenderer(_voxelGrid);
+            _renderer.LoadContent(GraphicsDevice);
+            _debugFont = Content.Load<SpriteFont>("DebugFont");
             _selector.LoadContent(GraphicsDevice);
             _painter.LoadContent(GraphicsDevice);
+
+            _gridLineTexture = new Texture2D(GraphicsDevice, 1, 1);
+            _gridLineTexture.SetData(new[] { Color.Black });
         }
 
         protected override void Update(GameTime gameTime)
@@ -71,11 +80,41 @@ namespace TToolbox
         {
             GraphicsDevice.Clear(Color.DarkBlue);
             _spriteBatch.Begin(transformMatrix: Matrix.CreateTranslation((int)-_camera.Offset.X, (int)-_camera.Offset.Y, 0));
-            _grid.Draw(_spriteBatch);
-            _painter.Draw(_spriteBatch);
-            _selector.Draw(_spriteBatch);
+            _renderer.Draw(_spriteBatch, _selector.CameraZ, 144);
+            _painter.Draw(_spriteBatch, 144);
+            if (_showGrid) DrawGridLines();
+            _selector.Draw(_spriteBatch, _debugFont);
+            DrawDebugInfo();
             _spriteBatch.End();
             base.Draw(gameTime);
+        }
+
+        private void DrawGridLines()
+        {
+            int tileSize = 144;
+            int width = _voxelGrid.GridWidth * tileSize;
+            int height = _voxelGrid.GridHeight * tileSize;
+
+            for (int x = 0; x <= _voxelGrid.GridWidth; x++)
+            {
+                _spriteBatch.Draw(_gridLineTexture, new Rectangle(x * tileSize, 0, 3, height), Color.Black);
+            }
+
+            for (int y = 0; y <= _voxelGrid.GridHeight; y++)
+            {
+                _spriteBatch.Draw(_gridLineTexture, new Rectangle(0, y * tileSize, width, 3), Color.Black);
+            }
+        }
+
+        private void DrawDebugInfo()
+        {
+            int cursorX = _selector.Position.X;
+            int cursorY = _selector.Position.Y;
+            int paintZ = _selector.CameraZ - 1;
+            int cameraZ = _selector.CameraZ;
+
+            string debugText = $"Cursor: ({cursorX}, {cursorY}, {paintZ})\nCamera Z: {cameraZ} (Paint Z: {paintZ})";
+            _spriteBatch.DrawString(_debugFont, debugText, new Vector2(10, 10) + _camera.Offset, Color.White);
         }
 
         private void HandleGlobalInput()
@@ -83,6 +122,7 @@ namespace TToolbox
             var kb = Keyboard.GetState();
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || kb.IsKeyDown(Keys.Escape))
                 Exit();
+
             if (_toggleDelayFrames == 0)
             {
                 if (kb.IsKeyDown(Keys.NumPad1))
@@ -92,7 +132,7 @@ namespace TToolbox
                 }
                 else if (kb.IsKeyDown(Keys.NumPad2))
                 {
-                    _grid.ToggleGridLines();
+                    _showGrid = !_showGrid;
                     _toggleDelayFrames = ToggleCooldownFrames;
                 }
             }
@@ -122,6 +162,25 @@ namespace TToolbox
                 _graphics.IsFullScreen = false;
                 _graphics.ApplyChanges();
                 _isFullscreen = false;
+            }
+        }
+        private void FillBaseLayer()
+        {
+            for (int y = 0; y < 100; y++)
+            {
+                for (int x = 0; x < 100; x++)
+                {
+                    for (int z = -3; z <= 0; z++)
+                    {
+                        _voxelGrid.SetVoxel(x, y, z, new Voxel
+                        {
+                            Type = VoxelType.Solid,
+                            IsFloor = z == 0,
+                            FluidDensityModifier = 0f,
+                            FluidOpacity = 0f
+                        });
+                    }
+                }
             }
         }
     }
